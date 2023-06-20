@@ -1,6 +1,4 @@
 import faunadb from "faunadb";
-import dotenv from "dotenv";
-dotenv.config();
 const q = faunadb.query;
 const client = new faunadb.Client({
   secret: process.env.KEY!,
@@ -44,6 +42,7 @@ document.getElementById("buffer-file")!.onchange = loadBuffer;
 function loadBuffer(e: any) {
   const reader = new FileReader();
   reader.onload = (event) => {
+    console.log("read");
     buffer = event.target!.result as ArrayBuffer;
     addImages();
   };
@@ -69,19 +68,24 @@ async function selectUser() {
 async function addUser() {
   const name = (document.getElementById("set-name") as HTMLInputElement).value;
 
-  userRef = await client.query(
-    q.Select(
-      0,
-      q.Filter(
-        q.Paginate(q.Documents(q.Collection("Users"))),
-        q.Lambda(
-          "user",
-          q.Equals(q.Select(["data", "name"], q.Get(q.Var("user"))), name)
+  const exists = !(await client.query(
+    q.Equals(
+      q.Count(
+        q.Filter(
+          q.Paginate(q.Documents(q.Collection("Users"))),
+          q.Lambda(
+            "user",
+            q.Equals(q.Select(["data", "name"], q.Get(q.Var("user"))), name)
+          )
         )
-      )
+      ),
+      0
     )
-  );
+  )) as any;
 
+  if (exists) {
+    return;
+  }
   userRef = (
     (await client.query(q.Create("Users", { data: { name: name } }))) as any
   ).ref;

@@ -1,3 +1,10 @@
+import faunadb from "faunadb";
+const q = faunadb.query;
+const client = new faunadb.Client({
+  secret: process.env.KEY!,
+  endpoint: process.env.ENDPOINT,
+});
+
 fetch("labels.txt").then(async (x) => {
   const text = await x.text();
   res = text
