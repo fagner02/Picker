@@ -1,0 +1,23 @@
+{
+  "name": "picker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "load.js",
+  "scripts": {
+    "build": "webpack",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "faunadb": "^4.8.0",
+    "terser-webpack-plugin": "^5.3.9",
+    "ts-loader": "^9.4.3",
+    "webpack": "^5.87.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.3.1",
+    "webpack-cli": "^5.1.4"
+  }
+}
