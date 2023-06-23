@@ -8,10 +8,10 @@
     <script src="dist/script.js" type="module" defer></script>
   </head>
   <body>
-    <label for="name"></label
-    ><input id="name" type="text" name="username" autocomplete="username" />
-    <label for="password"></label
-    ><input id="password" name="password" type="password" />
+    <label for="name"></label>
+    <input id="name" type="text" name="username" autocomplete="username" />
+    <label for="password"></label>
+    <input id="password" name="password" type="password" />
     <button type="submit" onclick="login()">login</button>
 
     <a href="load-image-array.html">load processed images</a>
@@ -19,7 +19,11 @@
       set index
     </button>
 
-    <div class="box"></div>
+    <div class="box">
+      <div class="axisx"></div>
+      <div class="axisy"></div>
+      <div class="marker-slots"></div>
+    </div>
     <button onclick="clearInputs(); setImage();">next</button>
   </body>
 </html>

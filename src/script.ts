@@ -1,5 +1,4 @@
 import faunadb from "faunadb";
-import { brotliCompress } from "zlib";
 const q = faunadb.query;
 const client = new faunadb.Client({
   secret: process.env.KEY!,
@@ -72,37 +71,59 @@ function selectInput(e: any) {
 }
 
 (document.getElementById("n0") as any).focus();
+
+let countStep = 0;
+let step = true;
+const axisx = document.querySelector(".axisx") as HTMLElement;
+const axisy = document.querySelector(".axisy") as HTMLElement;
 const moveMarker = (e: MouseEvent) => {
   const marker = selectedMarker as HTMLElement;
   marker!.style.top = `${e.clientY}px`;
   marker!.style.left = `${e.clientX}px`;
-  // console.log("bdw");
+  axisy!.style.top = `${e.clientY}px`;
+  axisx!.style.left = `${e.clientX}px`;
 };
 const deselectMarker = (e: MouseEvent) => {
   const marker = selectedMarker as HTMLElement;
   marker.className = "marker";
   marker!.style.top = `${e.clientY}px`;
   marker!.style.left = `${e.clientX}px`;
+  const rect = box.getBoundingClientRect();
+
+  const l = Math.floor(Math.abs(e.clientY - rect.top - 1) / 5);
+  const c = Math.floor(Math.abs(e.clientX - rect.left - 1) / 5);
+  console.log(l, c);
   const markers = document.querySelectorAll(".marker");
   markers.forEach((x) => ((x as HTMLElement).style.pointerEvents = "auto"));
   box.onmousemove = null;
   box.onclick = null;
+  countStep = 0;
 };
 const box = document.querySelector(".box") as HTMLElement;
 const divisions = 100;
 let selectedMarker: null | HTMLElement = null;
-
+const markerSlots = document.querySelector(".marker-slots");
 for (let i = 0; i < fingerCount; i++) {
   const marker = document.createElement("div");
-  marker.className = "marker selected";
+  const slot = document.createElement("div");
+  slot.className = "marker-slot";
+  markerSlots?.append(slot);
+  const rect = slot.getBoundingClientRect();
+  marker.className = "marker";
+  marker.style.background = `hsl(${Math.floor(
+    i * (280 / (fingerCount - 1))
+  )}, 90%, 50%, 70%)`;
+  marker!.style.top = `${rect.top + 9}px`;
+  marker!.style.left = `${rect.left + 9}px`;
   marker.onclick = (e) => {
     selectedMarker = e.target as HTMLElement;
     marker.className = "marker selected";
-    marker!.style.top = `${e.clientY}px`;
-    marker!.style.left = `${e.clientX}px`;
+    // marker!.style.top = `${e.clientY}px`;
+    // marker!.style.left = `${e.clientX}px`;
     const markers = document.querySelectorAll(".marker");
     markers.forEach((x) => ((x as HTMLElement).style.pointerEvents = "none"));
     console.log("hello");
+    e.stopPropagation();
     box.onmousemove = moveMarker;
     box.onclick = deselectMarker;
   };
@@ -160,6 +181,20 @@ async function setImageK() {
   const img = (await client.query(
     q.Select(["data", "image"], q.Get(imagesRef[index]))
   )) as string;
+  const markers = document.querySelectorAll(".markers");
+  const rect = box.getBoundingClientRect();
+  res.forEach((x, i) => {
+    const point = (x / 100)
+      .toString()
+      .split(".")
+      .map((y) => parseInt(y));
+    (markers[i] as HTMLElement).style.top = `${
+      point[1] * 5 + 2.5 + rect.top
+    }px`;
+    (markers[i] as HTMLElement).style.left = `${
+      point[0] * 5 + 2.5 + rect.left
+    }px`;
+  });
   const arr = new Uint8Array(img.length);
   for (var i = 0; i < img.length; i++) {
     arr[i] = img.charCodeAt(i);
@@ -198,7 +233,15 @@ function setImage() {
   const arr = new Uint8Array(
     buffer!.slice(index * 30000, index * 30000 + 30000)
   );
-
+  const markers = document.querySelectorAll(".marker");
+  const rect = box.getBoundingClientRect();
+  console.log(res[0].length);
+  res[index].forEach((x: number, i: number) => {
+    const c = Math.floor(x / 100);
+    const l = x - c * 100;
+    (markers[i] as HTMLElement).style.top = `${c * 5 + 2.5 + rect.top}px`;
+    (markers[i] as HTMLElement).style.left = `${l * 5 + 2.5 + rect.left}px`;
+  });
   for (var i = 0; i < arr.length; i++) {
     if (
       res[index] != undefined &&
@@ -245,7 +288,7 @@ function setIndex() {
   }
   index = newIndex;
   filled = fingerCount;
-  setImageK();
+  setImage();
 }
 
 (window as any).login = login;
