@@ -2,19 +2,23 @@ const path = require("path");
 const TerserPlugin = require("terser-webpack-plugin");
 const Dotenv = require("dotenv-webpack");
 module.exports = {
+  mode: "production",
+  devtool: "source-map",
   module: {
     rules: [
       {
-        test: /\.ts$/,
         use: "ts-loader",
         include: [path.resolve(__dirname, "src")],
       },
     ],
   },
   plugins: [new Dotenv()],
-  entry: "./src/load.ts",
+  entry: {
+    script: path.resolve(__dirname, "src/script.ts"),
+    load: path.resolve(__dirname, "src/load.ts"),
+  },
   output: {
-    filename: "load.js",
+    filename: "[name].js",
     path: path.resolve(__dirname, "dist"),
   },
   optimization: {

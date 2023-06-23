@@ -1,4 +1,5 @@
 .env
 dist
 *.txt
+.vscode
 node_modules

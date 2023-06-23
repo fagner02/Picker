@@ -1,9 +1,53 @@
 import faunadb from "faunadb";
+import { brotliCompress } from "zlib";
 const q = faunadb.query;
 const client = new faunadb.Client({
   secret: process.env.KEY!,
   endpoint: process.env.ENDPOINT,
 });
+
+var imagesRef: any[] = [];
+async function login() {
+  const name = (document.getElementById("name") as HTMLInputElement).value;
+  const password = (document.getElementById("password") as HTMLInputElement)
+    .value;
+  const users = await client.query(
+    q.Filter(
+      q.Paginate(q.Documents(q.Collection("Users"))),
+      q.Lambda(
+        "user",
+        q.Equals(q.Select(["data", "name"], q.Get(q.Var("user"))), name)
+      )
+    )
+  );
+  const notExist = await client.query(
+    q.Equals(q.Count(q.Select("data", users)), 0)
+  );
+  if (notExist) return;
+  const user = (await client.query(q.Get(q.Select(["data", 0], users)))) as any;
+  const uri =
+    process.env.HASH +
+    "?a=" +
+    encodeURIComponent(name) +
+    "&b=" +
+    encodeURIComponent(password);
+  const hashPassword = await (await fetch(uri, { method: "GET" })).text();
+  const actual = user.data.password;
+  if (actual != hashPassword) {
+    console.log("rejected");
+    return;
+  }
+  console.log(user.data.end, user.data.start);
+  imagesRef = (await client.query(
+    q.Select(
+      "data",
+      q.Paginate(q.Documents(q.Collection("Images")), {
+        size: user.data.count,
+        after: [user.data.start],
+      })
+    )
+  )) as any[];
+}
 
 fetch("labels.txt").then(async (x) => {
   const text = await x.text();
@@ -28,20 +72,54 @@ function selectInput(e: any) {
 }
 
 (document.getElementById("n0") as any).focus();
-
-const size = 5;
+const moveMarker = (e: MouseEvent) => {
+  const marker = selectedMarker as HTMLElement;
+  marker!.style.top = `${e.clientY}px`;
+  marker!.style.left = `${e.clientX}px`;
+  // console.log("bdw");
+};
+const deselectMarker = (e: MouseEvent) => {
+  const marker = selectedMarker as HTMLElement;
+  marker.className = "marker";
+  marker!.style.top = `${e.clientY}px`;
+  marker!.style.left = `${e.clientX}px`;
+  const markers = document.querySelectorAll(".marker");
+  markers.forEach((x) => ((x as HTMLElement).style.pointerEvents = "auto"));
+  box.onmousemove = null;
+  box.onclick = null;
+};
 const box = document.querySelector(".box") as HTMLElement;
-box!.style.display = "flex";
-box!.style.flexWrap = "wrap";
-box!.style.width = `${100 * size}px`;
-for (var i = 0; i < 100 * 100; i++) {
-  const elem = document.createElement("div");
-  elem.style.width = `${size}px`;
-  elem.style.height = `${size}px`;
-  elem.style.background = "rgb(0,0,0)";
-  elem.id = `s${i}`;
-  elem.onclick = select;
-  box.append(elem);
+const divisions = 100;
+let selectedMarker: null | HTMLElement = null;
+
+for (let i = 0; i < fingerCount; i++) {
+  const marker = document.createElement("div");
+  marker.className = "marker selected";
+  marker.onclick = (e) => {
+    selectedMarker = e.target as HTMLElement;
+    marker.className = "marker selected";
+    marker!.style.top = `${e.clientY}px`;
+    marker!.style.left = `${e.clientX}px`;
+    const markers = document.querySelectorAll(".marker");
+    markers.forEach((x) => ((x as HTMLElement).style.pointerEvents = "none"));
+    console.log("hello");
+    box.onmousemove = moveMarker;
+    box.onclick = deselectMarker;
+  };
+  marker.innerText = (i + 1).toString();
+  document.body.append(marker);
+}
+
+for (var k = 0; k < divisions; k++) {
+  const line = document.createElement("div");
+  line.className = "line";
+  for (var i = 0; i < divisions; i++) {
+    const elem = document.createElement("div");
+    elem.className = "dot";
+    elem.id = `s${k * divisions + i}`;
+    line.append(elem);
+  }
+  box.append(line);
 }
 
 var current = fingerCount;
@@ -76,6 +154,43 @@ fetch("test.txt").then(async (x) => {
   buffer = await x.arrayBuffer();
   setImage();
 });
+
+async function setImageK() {
+  if (filled < fingerCount) return;
+  const img = (await client.query(
+    q.Select(["data", "image"], q.Get(imagesRef[index]))
+  )) as string;
+  const arr = new Uint8Array(img.length);
+  for (var i = 0; i < img.length; i++) {
+    arr[i] = img.charCodeAt(i);
+  }
+
+  for (var i = 0; i < arr.length; i++) {
+    if (
+      res[index] != undefined &&
+      res[index].find((x: number) => x == Math.floor(i / 3))
+    ) {
+      document.getElementById(`s${Math.floor(i / 3)}`)!.style.background =
+        "rgb(0,0,0)";
+      i += 2;
+      continue;
+    }
+    document.getElementById(`s${Math.floor(i / 3)}`)!.style.background = `rgb(${
+      arr[i]
+    }, ${arr[i + 1]}, ${arr[i + 2]})`;
+
+    i += 2;
+  }
+  console.log(res[index - 1]?.toString());
+  current = 0;
+  if (res.length == index) {
+    res.push([]);
+  }
+  (document.getElementById("index") as HTMLInputElement).value =
+    index.toString();
+  index++;
+  filled = 0;
+}
 
 var index = 0;
 function setImage() {
@@ -130,5 +245,9 @@ function setIndex() {
   }
   index = newIndex;
   filled = fingerCount;
-  setImage();
+  setImageK();
 }
+
+(window as any).login = login;
+(window as any).clearInputs = clearInputs;
+(window as any).setIndex = setIndex;
