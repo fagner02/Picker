@@ -1,3 +1,5 @@
+import { Buffer } from "buffer";
+
 var imagesIds: any[] = [];
 async function login() {
   const name = (document.getElementById("name") as HTMLInputElement).value;
@@ -13,9 +15,8 @@ async function login() {
     },
   });
   sessionStorage.token = response.headers.get("authorization");
-  const { count, start } = await response.json();
 
-  const uri = `${process.env.HASH!}/images?count=${count}&start=${start}`;
+  const uri = `${process.env.HASH!}/images`;
   imagesIds = await (
     await fetch(uri, {
       method: "GET",
@@ -168,26 +169,19 @@ fetch("test.txt").then(async (x) => {
 async function setImageK() {
   if (filled < fingerCount) return;
   const img = await (
-    await fetch(`${process.env.HASH!}/image-str?ref=${imagesIds[index]}`, {
+    await fetch(`${process.env.HASH!}/image-str?id=${imagesIds[index]}`, {
       method: "GET",
       headers: {
         authorization: `Bearer ${sessionStorage.token}`,
       },
     })
   ).text();
-  const markers = document.querySelectorAll(".markers");
-  const rect = box.getBoundingClientRect();
-  res.forEach((x, i) => {
-    const point = (x / 100)
-      .toString()
-      .split(".")
-      .map((y) => parseInt(y));
-    (markers[i] as HTMLElement).style.top = `${
-      point[1] * 5 + 2.5 + rect.top
-    }px`;
-    (markers[i] as HTMLElement).style.left = `${
-      point[0] * 5 + 2.5 + rect.left
-    }px`;
+  const markers = document.querySelectorAll(".marker");
+  res[index].forEach((x: number, i: number) => {
+    const c = Math.floor(x / 100);
+    const l = x - c * 100;
+    (markers[i] as HTMLElement).style.top = `${c * 5 + 2.5}px`;
+    (markers[i] as HTMLElement).style.left = `${l * 5 + 2.5}px`;
   });
   const arr = new Uint8Array(img.length);
   for (var i = 0; i < img.length; i++) {
