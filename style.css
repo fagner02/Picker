@@ -63,30 +63,42 @@ input {
   /* outline: 1px solid hsl(0, 0%, 0%, 5%); */
 }
 
+.marker,
+.marker-slot {
+  width: var(--marker-size);
+  height: var(--marker-size);
+  border-radius: 50%;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: bold;
+  user-select: none;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .marker {
   --half: calc(calc(var(--marker-size) / 2) * -1);
   --line-height: 5px;
   --pointer-size: 6px;
   --v-height: calc(var(--marker-size) + var(--line-height));
-  border-radius: 50%;
+
   outline: 1px solid hsl(0, 0%, 0%, 90%);
-  width: var(--marker-size);
-  height: var(--marker-size);
-  background: hsl(0, 0%, 0%, 50%);
-  position: absolute;
-  user-select: none;
-  font-family: var(--font);
-  font-size: 12px;
-  font-weight: bold;
+  position: relative;
   color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 0;
   translate: calc(var(--half) + 1px) calc(var(--half) + 1px);
   transition: translate 0.5s, top 0.3s ease, left 0.1s ease;
   z-index: 2;
+  grid-area: unit;
 }
+.markers {
+  display: grid;
+  grid-template-areas: "unit";
+  position: absolute;
+  /* translate: 0px -40px; */
+}
+
 .marker.selected {
   --half-pointer: calc(var(--pointer-size) / 2);
   --marker-top: calc(calc(var(--v-height) + var(--half-pointer)) * -1);
@@ -120,10 +132,7 @@ input {
 }
 
 .marker-slot {
-  width: var(--marker-size);
-  height: var(--marker-size);
   border: 1px solid hsl(0, 0%, 0%, 50%);
-  border-radius: 50%;
   background: hsl(0, 0%, 95%, 100%);
 }
 .axisx {

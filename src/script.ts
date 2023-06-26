@@ -1,51 +1,29 @@
-import faunadb from "faunadb";
-const q = faunadb.query;
-const client = new faunadb.Client({
-  secret: process.env.KEY!,
-  endpoint: process.env.ENDPOINT,
-});
-
-var imagesRef: any[] = [];
+var imagesIds: any[] = [];
 async function login() {
   const name = (document.getElementById("name") as HTMLInputElement).value;
   const password = (document.getElementById("password") as HTMLInputElement)
     .value;
-  const users = await client.query(
-    q.Filter(
-      q.Paginate(q.Documents(q.Collection("Users"))),
-      q.Lambda(
-        "user",
-        q.Equals(q.Select(["data", "name"], q.Get(q.Var("user"))), name)
-      )
-    )
-  );
-  const notExist = await client.query(
-    q.Equals(q.Count(q.Select("data", users)), 0)
-  );
-  if (notExist) return;
-  const user = (await client.query(q.Get(q.Select(["data", 0], users)))) as any;
-  const uri =
-    process.env.HASH +
-    "?a=" +
-    encodeURIComponent(name) +
-    "&b=" +
-    encodeURIComponent(password);
-  const hashPassword = await (await fetch(uri, { method: "GET" })).text();
-  const actual = user.data.password;
-  if (actual != hashPassword) {
-    console.log("rejected");
-    return;
-  }
-  console.log(user.data.end, user.data.start);
-  imagesRef = (await client.query(
-    q.Select(
-      "data",
-      q.Paginate(q.Documents(q.Collection("Images")), {
-        size: user.data.count,
-        after: [user.data.start],
-      })
-    )
-  )) as any[];
+
+  const response = await fetch(process.env.HASH! + "/login", {
+    method: "POST",
+    headers: {
+      authorization: `Basic ${Buffer.from(`${name}:${password}`).toString(
+        "base64"
+      )}`,
+    },
+  });
+  sessionStorage.token = response.headers.get("authorization");
+  const { count, start } = await response.json();
+
+  const uri = `${process.env.HASH!}/images?count=${count}&start=${start}`;
+  imagesIds = await (
+    await fetch(uri, {
+      method: "GET",
+      headers: {
+        authorization: `Bearer ${sessionStorage.token}`,
+      },
+    })
+  ).json();
 }
 
 fetch("labels.txt").then(async (x) => {
@@ -78,21 +56,24 @@ const axisx = document.querySelector(".axisx") as HTMLElement;
 const axisy = document.querySelector(".axisy") as HTMLElement;
 const moveMarker = (e: MouseEvent) => {
   const marker = selectedMarker as HTMLElement;
-  marker!.style.top = `${e.clientY}px`;
+  const rect = box.getBoundingClientRect();
+  marker!.style.top = `${e.clientY - rect.top}px`;
   marker!.style.left = `${e.clientX}px`;
-  axisy!.style.top = `${e.clientY}px`;
+  axisy!.style.top = `${e.clientY - rect.top}px`;
   axisx!.style.left = `${e.clientX}px`;
 };
 const deselectMarker = (e: MouseEvent) => {
+  const rect = box.getBoundingClientRect();
   const marker = selectedMarker as HTMLElement;
   marker.className = "marker";
-  marker!.style.top = `${e.clientY}px`;
-  marker!.style.left = `${e.clientX}px`;
-  const rect = box.getBoundingClientRect();
+  marker!.style.top = `${e.clientY - rect.top}px`;
+  marker!.style.left = `${e.clientX - rect.left}px`;
+  marker.style.zIndex = "2";
 
   const l = Math.floor(Math.abs(e.clientY - rect.top - 1) / 5);
   const c = Math.floor(Math.abs(e.clientX - rect.left - 1) / 5);
   console.log(l, c);
+  document.getElementById("xy")!.innerText = `x: ${l}\ny: ${c}`;
   const markers = document.querySelectorAll(".marker");
   markers.forEach((x) => ((x as HTMLElement).style.pointerEvents = "auto"));
   box.onmousemove = null;
@@ -107,6 +88,11 @@ for (let i = 0; i < fingerCount; i++) {
   const marker = document.createElement("div");
   const slot = document.createElement("div");
   slot.className = "marker-slot";
+  slot.innerText = (i + 1).toString();
+  slot.onclick = (e) => {
+    e.stopPropagation();
+    marker.click();
+  };
   markerSlots?.append(slot);
   const rect = slot.getBoundingClientRect();
   marker.className = "marker";
@@ -116,19 +102,22 @@ for (let i = 0; i < fingerCount; i++) {
   marker!.style.top = `${rect.top + 9}px`;
   marker!.style.left = `${rect.left + 9}px`;
   marker.onclick = (e) => {
-    selectedMarker = e.target as HTMLElement;
+    e.stopPropagation();
+    console.log("in", marker);
+    selectedMarker = marker;
     marker.className = "marker selected";
+    marker.style.zIndex = "3";
     // marker!.style.top = `${e.clientY}px`;
     // marker!.style.left = `${e.clientX}px`;
     const markers = document.querySelectorAll(".marker");
     markers.forEach((x) => ((x as HTMLElement).style.pointerEvents = "none"));
     console.log("hello");
-    e.stopPropagation();
     box.onmousemove = moveMarker;
     box.onclick = deselectMarker;
   };
   marker.innerText = (i + 1).toString();
-  document.body.append(marker);
+  const mm = document.querySelector(".markers") as HTMLElement;
+  mm.append(marker);
 }
 
 for (var k = 0; k < divisions; k++) {
@@ -178,9 +167,14 @@ fetch("test.txt").then(async (x) => {
 
 async function setImageK() {
   if (filled < fingerCount) return;
-  const img = (await client.query(
-    q.Select(["data", "image"], q.Get(imagesRef[index]))
-  )) as string;
+  const img = await (
+    await fetch(`${process.env.HASH!}/image-str?ref=${imagesIds[index]}`, {
+      method: "GET",
+      headers: {
+        authorization: `Bearer ${sessionStorage.token}`,
+      },
+    })
+  ).text();
   const markers = document.querySelectorAll(".markers");
   const rect = box.getBoundingClientRect();
   res.forEach((x, i) => {
@@ -239,8 +233,8 @@ function setImage() {
   res[index].forEach((x: number, i: number) => {
     const c = Math.floor(x / 100);
     const l = x - c * 100;
-    (markers[i] as HTMLElement).style.top = `${c * 5 + 2.5 + rect.top}px`;
-    (markers[i] as HTMLElement).style.left = `${l * 5 + 2.5 + rect.left}px`;
+    (markers[i] as HTMLElement).style.top = `${c * 5 + 2.5}px`;
+    (markers[i] as HTMLElement).style.left = `${l * 5 + 2.5}px`;
   });
   for (var i = 0; i < arr.length; i++) {
     if (
@@ -288,7 +282,7 @@ function setIndex() {
   }
   index = newIndex;
   filled = fingerCount;
-  setImage();
+  setImageK();
 }
 
 (window as any).login = login;

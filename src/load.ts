@@ -1,12 +1,7 @@
-import faunadb from "faunadb";
-const q = faunadb.query;
-const client = new faunadb.Client({
-  secret: process.env.KEY!,
-  endpoint: process.env.ENDPOINT,
-});
+import { Buffer } from "buffer";
 
 var buffer: ArrayBuffer = new ArrayBuffer(1);
-async function loadImage(index: number) {
+function loadImage(index: number) {
   const arr = new Uint8Array(
     buffer.slice(index * 30000, index * 30000 + 30000)
   );
@@ -15,35 +10,61 @@ async function loadImage(index: number) {
   for (var i = 0; i < arr.length; i++) {
     str += String.fromCharCode(arr[i]);
   }
-  console.log(str.length);
-  return await client.query(
-    q.Create("Images", { data: { image: str, points: [] } })
-  );
+
+  return { image: str, points: [] };
 }
 
-var userRef: null | object = null;
+async function sendImages(images: any, endpoint: string) {
+  return await (
+    await fetch(`${process.env.HASH!}/${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionStorage.token}`,
+      },
+      body: JSON.stringify({ images }),
+    })
+  ).text();
+}
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function addImages() {
   var count = 0;
-  var temp = (await loadImage(count)) as any;
-  var imageRef = temp.ref;
-  client.query(
-    q.Update(userRef as faunadb.ExprArg, { data: { start: imageRef } })
-  );
+  console.log("loading");
+  var temp = loadImage(count);
+  var imageId = await sendImages(temp, "image");
 
+  let images: any[] = [];
   while (temp != null) {
+    if (count > 0) images.push(temp);
+    if (images.length == 50) {
+      console.log(images.length);
+      await sendImages(images, "images");
+      images = [];
+    }
     count++;
-    temp = (await loadImage(count)) as any;
+    temp = loadImage(count);
+  }
+  if (images.length > 0) {
+    await sendImages(images, "images");
+    images = [];
   }
   console.log("after");
-  client.query(
-    q.Update(userRef as faunadb.ExprArg, { data: { count: count } })
-  );
+  await fetch(`${process.env.HASH!}/user`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${sessionStorage.token}`,
+    },
+    body: JSON.stringify({ imageId, count }),
+  });
 }
 
 document.getElementById("buffer-file")!.onchange = loadBuffer;
 function loadBuffer(e: any) {
-  if (userRef == null) return;
   const reader = new FileReader();
   reader.onload = (event) => {
     console.log("read");
@@ -52,95 +73,43 @@ function loadBuffer(e: any) {
   };
   reader.readAsArrayBuffer(e.target!.files[0]);
 }
-client
-  .query(
-    q.Map(
-      q.Paginate(q.Documents(q.Collection("Images"))),
-      q.Lambda(["ref"], q.Delete(q.Var("ref")))
-    )
-  )
-  .then((x) => console.log(x));
+
 async function selectUser() {
   const name = (document.getElementById("set-name") as HTMLInputElement).value;
-  const users = await client.query(
-    q.Select(
-      "data",
-      q.Filter(
-        q.Paginate(q.Documents(q.Collection("Users"))),
-        q.Lambda(
-          "user",
-          q.Equals(q.Select(["data", "name"], q.Get(q.Var("user"))), name)
-        )
-      )
-    )
-  );
-  const notExist = await client.query(q.Equals(q.Count(users), 0));
-  if (notExist) return;
-  userRef = await client.query(q.Select(0, users));
+  const password = (document.getElementById("password") as HTMLInputElement)
+    .value;
+
+  console.log(name, password, `${name}:${password}`);
+  const cred = (
+    await fetch(process.env.HASH! + "/login", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${name}:${password}`).toString(
+          "base64"
+        )}`,
+      },
+    })
+  ).headers.get("authorization");
+  sessionStorage.token = cred!;
 }
 
 async function addUser() {
   const name = (document.getElementById("set-name") as HTMLInputElement).value;
   const password = (document.getElementById("password") as HTMLInputElement)
     .value;
-  const exists = !(await client.query(
-    q.Equals(
-      q.Count(
-        q.Select(
-          ["data"],
-          q.Filter(
-            q.Paginate(q.Documents(q.Collection("Users"))),
-            q.Lambda(
-              "user",
-              q.Equals(q.Select(["data", "name"], q.Get(q.Var("user"))), name)
-            )
-          )
-        )
-      ),
-      0
-    )
-  ));
-  console.log(
-    await client.query(
-      q.Select(
-        ["data"],
-        q.Filter(
-          q.Paginate(q.Documents(q.Collection("Users"))),
-          q.Lambda(
-            "user",
-            q.Equals(q.Select(["data", "name"], q.Get(q.Var("user"))), name)
-          )
-        )
-      )
-    )
-  );
-  if (exists) {
-    console.log("exists", name);
-    return;
-  }
-  const uri =
-    process.env.HASH +
-    "?a=" +
-    encodeURIComponent(name) +
-    "&b=" +
-    encodeURIComponent(password);
-  console.log(uri);
-  const hashPassword = await (
-    await fetch(uri, {
-      method: "GET",
+
+  const cred = (
+    await fetch(process.env.HASH! + "/user", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${name}:${password}`).toString(
+          "base64"
+        )}`,
+      },
     })
-  ).text();
-  userRef = (
-    (await client.query(
-      q.Create("Users", { data: { name: name, password: hashPassword } })
-    )) as any
-  ).ref;
-  const ss = await client.query(
-    q.Select(["data", "password"], q.Get(userRef!))
-  );
-  console.log(name, hashPassword == (ss as any), hashPassword);
+  ).headers.get("authorization");
+  sessionStorage.token = cred!;
 }
 (window as any).addUser = addUser;
 (window as any).selectUser = selectUser;
-
-// q.Paginate(q.Documents(q.Collection("Images")), { before });
+(window as any).Buffer = Buffer;
