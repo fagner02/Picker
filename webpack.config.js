@@ -12,7 +12,7 @@ module.exports = {
       },
     ],
   },
-  plugins: [new Dotenv()],
+  plugins: [new Dotenv({ systemvars: true })],
   entry: {
     script: path.resolve(__dirname, "src/script.ts"),
     load: path.resolve(__dirname, "src/load.ts"),
