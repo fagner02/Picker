@@ -4,8 +4,8 @@
   "description": "",
   "main": "load.js",
   "scripts": {
-    "build": "webpack watch",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "webpack watch",
+    "build": "webpack"
   },
   "author": "",
   "license": "ISC",

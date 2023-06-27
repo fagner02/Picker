@@ -51,36 +51,62 @@ function selectInput(e: any) {
 
 (document.getElementById("n0") as any).focus();
 
-let countStep = 0;
-let step = true;
 const axisx = document.querySelector(".axisx") as HTMLElement;
 const axisy = document.querySelector(".axisy") as HTMLElement;
 const moveMarker = (e: MouseEvent) => {
   const marker = selectedMarker as HTMLElement;
   const rect = box.getBoundingClientRect();
-  marker!.style.top = `${e.clientY - rect.top}px`;
-  marker!.style.left = `${e.clientX}px`;
-  axisy!.style.top = `${e.clientY - rect.top}px`;
+
+  setMarkerStyle(marker, [
+    `${(100 * (e.clientY - rect.top)) / rect.height}%`,
+    `${(100 * (e.clientX - rect.left)) / rect.width}%`,
+  ]);
+  axisy!.style.top = `${e.clientY}px`;
   axisx!.style.left = `${e.clientX}px`;
 };
 const deselectMarker = (e: MouseEvent) => {
   const rect = box.getBoundingClientRect();
   const marker = selectedMarker as HTMLElement;
   marker.className = "marker";
-  marker!.style.top = `${e.clientY - rect.top}px`;
-  marker!.style.left = `${e.clientX - rect.left}px`;
-  marker.style.zIndex = "2";
 
-  const l = Math.floor(Math.abs(e.clientY - rect.top - 1) / 5);
-  const c = Math.floor(Math.abs(e.clientX - rect.left - 1) / 5);
+  setMarkerStyle(marker, [
+    `${(100 * (e.clientY - rect.top)) / rect.height}%`,
+    `${(100 * (e.clientX - rect.left)) / rect.width}%`,
+    "2",
+  ]);
+
+  const blockH = rect.height / 100;
+  const blockV = rect.width / 100;
+  const l = Math.floor(Math.abs(e.clientY - rect.top - 1) / blockH);
+  const c = Math.floor(Math.abs(e.clientX - rect.left - 1) / blockV);
   console.log(l, c);
   document.getElementById("xy")!.innerText = `x: ${l}\ny: ${c}`;
-  const markers = document.querySelectorAll(".marker");
-  markers.forEach((x) => ((x as HTMLElement).style.pointerEvents = "auto"));
+  setPointerEvents("auto");
   box.onmousemove = null;
   box.onclick = null;
-  countStep = 0;
 };
+
+function setPointerEvents(value: string) {
+  const markers = document.querySelectorAll(".marker");
+  const slots = document.querySelectorAll(".marker-slot");
+  markers.forEach((x) => {
+    setMarkerStyle(x as HTMLElement, [null, null, null, value]);
+  });
+  slots.forEach((x) => {
+    (x as HTMLElement).style.pointerEvents = value;
+  });
+}
+
+function setMarkerStyle(marker: HTMLElement, values: any) {
+  let cssText = marker.style.cssText.split(";");
+  if (values[0]) cssText[0] = `top: ${values[0]}`;
+  if (values[1]) cssText[1] = `left: ${values[1]}`;
+  if (values[2]) cssText[2] = `z-index: ${values[2]}`;
+  if (values[3]) cssText[3] = `pointer-events: ${values[3]}`;
+  if (values[4]) cssText[4] = `background: ${values[4]}`;
+  marker.style.cssText = cssText.join(";");
+}
+
 const box = document.querySelector(".box") as HTMLElement;
 const divisions = 100;
 let selectedMarker: null | HTMLElement = null;
@@ -97,21 +123,24 @@ for (let i = 0; i < fingerCount; i++) {
   markerSlots?.append(slot);
   const rect = slot.getBoundingClientRect();
   marker.className = "marker";
-  marker.style.background = `hsl(${Math.floor(
-    i * (280 / (fingerCount - 1))
-  )}, 90%, 50%, 70%)`;
-  marker!.style.top = `${rect.top + 9}px`;
-  marker!.style.left = `${rect.left + 9}px`;
+  marker.style.cssText =
+    "top: 0;left: 0;z-index: 0;pointer-events:auto;background: 0";
+  setMarkerStyle(marker, [
+    `${rect.top + 9}%`,
+    `${rect.left + 9}%`,
+    null,
+    null,
+    `hsl(${Math.floor(i * (280 / (fingerCount - 1)))}, 90%, 50%, 70%)`,
+  ]);
+
   marker.onclick = (e) => {
     e.stopPropagation();
     console.log("in", marker);
     selectedMarker = marker;
     marker.className = "marker selected";
-    marker.style.zIndex = "3";
-    // marker!.style.top = `${e.clientY}px`;
-    // marker!.style.left = `${e.clientX}px`;
+    setMarkerStyle(marker, [null, null, "3"]);
     const markers = document.querySelectorAll(".marker");
-    markers.forEach((x) => ((x as HTMLElement).style.pointerEvents = "none"));
+    setPointerEvents("none");
     console.log("hello");
     box.onmousemove = moveMarker;
     box.onclick = deselectMarker;
@@ -176,12 +205,17 @@ async function setImageK() {
       },
     })
   ).text();
+  const rect = box.getBoundingClientRect();
+  const blockH = rect.height / 100;
+  const blockV = rect.width / 100;
   const markers = document.querySelectorAll(".marker");
   res[index].forEach((x: number, i: number) => {
-    const c = Math.floor(x / 100);
-    const l = x - c * 100;
-    (markers[i] as HTMLElement).style.top = `${c * 5 + 2.5}px`;
-    (markers[i] as HTMLElement).style.left = `${l * 5 + 2.5}px`;
+    const l = Math.floor(x / 100);
+    const c = x - l * 100;
+    setMarkerStyle(markers[i] as HTMLElement, [
+      `${(100 * (l * blockH + 2.5)) / rect.height}%`,
+      `${(100 * (c * blockV + 2.5)) / rect.width}%`,
+    ]);
   });
   const arr = new Uint8Array(img.length);
   for (var i = 0; i < img.length; i++) {
@@ -223,12 +257,16 @@ function setImage() {
   );
   const markers = document.querySelectorAll(".marker");
   const rect = box.getBoundingClientRect();
+  const blockH = rect.height / 100;
+  const blockV = rect.width / 100;
   console.log(res[0].length);
   res[index].forEach((x: number, i: number) => {
-    const c = Math.floor(x / 100);
-    const l = x - c * 100;
-    (markers[i] as HTMLElement).style.top = `${c * 5 + 2.5}px`;
-    (markers[i] as HTMLElement).style.left = `${l * 5 + 2.5}px`;
+    const l = Math.floor(x / 100);
+    const c = x - l * 100;
+    setMarkerStyle(markers[i] as HTMLElement, [
+      `${(100 * (l * blockH + 2.5)) / rect.height}%`,
+      `${(100 * (c * blockV + 2.5)) / rect.width}%`,
+    ]);
   });
   for (var i = 0; i < arr.length; i++) {
     if (

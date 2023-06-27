@@ -1,5 +1,5 @@
 :root {
-  --block-size: 5px;
+  --block-size: 0.8dvmin;
   --gap-size: 0px;
   --font: monospace;
 
@@ -8,24 +8,7 @@
   --bs: calc(var(--blocks) * var(--block-size));
   --box-size: calc(calc(var(--gs) + var(--bs)) - var(--gap-size));
 
-  --marker-size: 18px;
-}
-
-@media screen and (max-width: 650px) {
-  :root {
-    --block-size: 4px;
-  }
-}
-@media screen and (max-width: 550px) {
-  :root {
-    --block-size: 3px;
-  }
-}
-@media screen and (max-width: 450px) {
-  :root {
-    --block-size: 2px;
-    --gap-size: 0px;
-  }
+  --marker-size: 3dvmin;
 }
 
 body,
@@ -69,7 +52,7 @@ input {
   height: var(--marker-size);
   border-radius: 50%;
   font-family: var(--font);
-  font-size: 12px;
+  font-size: 2dvmin;
   font-weight: bold;
   user-select: none;
 
@@ -91,11 +74,14 @@ input {
   transition: translate 0.5s, top 0.3s ease, left 0.1s ease;
   z-index: 2;
   grid-area: unit;
+  top: 0%;
 }
 .markers {
   display: grid;
   grid-template-areas: "unit";
   position: absolute;
+  width: inherit;
+  height: inherit;
   /* translate: 0px -40px; */
 }
 
@@ -103,6 +89,7 @@ input {
   --half-pointer: calc(var(--pointer-size) / 2);
   --marker-top: calc(calc(var(--v-height) + var(--half-pointer)) * -1);
   translate: calc(var(--half) + 1px) calc(var(--marker-top) + 1px);
+  top: 0%;
 }
 
 .marker.selected::before {
@@ -128,7 +115,9 @@ input {
   position: absolute;
   display: flex;
   gap: 5px;
+  flex-wrap: wrap;
   padding: 5px;
+  width: inherit;
 }
 
 .marker-slot {
